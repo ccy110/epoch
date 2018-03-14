@@ -821,12 +821,12 @@ handle_micro_block_candidate_reply({Result,_OldTopHash}, State) ->
             State1 = State#state{block_candidate = Candidate},
             start_micro_signing(State1);
         {error, key_not_found} ->
-            start_mining(State#state{keys_ready = false});
+            start_micro_signing(State#state{keys_ready = false});
         {error, Reason} ->
             epoch_mining:error("Creation of micro block candidate failed: ~p",
                 [Reason]),
             %% TODO: Should we wait for something else here?
-            create_key_block_candidate(State)
+            create_micro_block_candidate(State)
     end.
 
 %%%===================================================================
