@@ -811,15 +811,15 @@ handle_micro_block_candidate_reply({Result,_OldTopHash}, State) ->
         {ok, BlockCandidate, RandomNonce} ->
             Nonce = aec_pow:next_nonce(RandomNonce),
             epoch_mining:info("Created micro block candidate and nonce "
-            "(max ~p, current ~p). "
-            "Its target is ~p (= difficulty ~p).",
+                              "(max ~p, current ~p). "
+                              "Its target is ~p (= difficulty ~p).",
                 [RandomNonce, Nonce,
                     aec_blocks:target(BlockCandidate),
                     aec_blocks:difficulty(BlockCandidate)]),
             Candidate = new_candidate(BlockCandidate, Nonce,
                                       RandomNonce, State),
             State1 = State#state{block_candidate = Candidate},
-            start_micro_signing(State);
+            start_micro_signing(State1);
         {error, key_not_found} ->
             start_mining(State#state{keys_ready = false});
         {error, Reason} ->
