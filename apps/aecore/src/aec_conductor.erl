@@ -559,7 +559,7 @@ start_mining(#state{block_candidate = undefined} = State) ->
 %                   } = State) when OldHash =/= SeenHash ->
 %    %% Candidate generated with stale top hash.
 %    %% Regenerate the candidate.
-%    %% TODO: XXX change this!!! (commenting out now)
+%    %% TODO: XXX change this! we need to pull height to state level and give a threshold
 %    create_key_block_candidate(State#state{block_candidate = undefined});
 start_mining(#state{block_candidate = Candidate} = State) ->
     epoch_mining:info("Starting mining"),
@@ -659,9 +659,9 @@ start_micro_signing(#state{leader = true, block_candidate = undefined} = State) 
     %% We need to generate a new block candidate first.
     create_micro_block_candidate(State);
 start_micro_signing(#state{leader = true,
-    block_candidate = #candidate{top_hash = OldHash},
-                                 seen_top_block_hash = SeenHash
-                                 } = State) when OldHash =/= SeenHash ->
+                           block_candidate = #candidate{top_hash = OldHash},
+                           seen_top_block_hash = SeenHash
+                          } = State) when OldHash =/= SeenHash ->
     %% Probably no longer the leader
     epoch_mining:debug("Candidate is not refering to previous hash"),
     create_micro_block_candidate(State#state{block_candidate = undefined});
@@ -671,8 +671,8 @@ start_micro_signing(#state{block_candidate = Candidate} = State) ->
     Info      = [{top_block_hash, State#state.seen_top_block_hash}],
     aec_events:publish(start_micro_signing, Info),
     Fun = fun() ->
-        {aec_keys:sign(HeaderBin), HeaderBin}
-    end,
+                  {aec_keys:sign(HeaderBin), HeaderBin}
+          end,
     dispatch_worker(micro_signing, Fun, State).
 
 handle_micro_signing_reply(_Reply, #state{block_candidate = undefined} = State) ->
@@ -702,8 +702,8 @@ handle_micro_signing_reply({{error, {runtime, Reason}}, _}, State) ->
     aec_metrics:try_update([ae,epoch,aecore,mining,retries], 1),
     Candidate = State#state.block_candidate,
     epoch_mining:error("Failed to mine block, runtime error; "
-    "retrying with different nonce (was ~p). "
-    "Error: ~p", [Candidate#candidate.nonce, Reason]),
+                       "retrying with different nonce (was ~p). "
+                       "Error: ~p", [Candidate#candidate.nonce, Reason]),
     %% TODO: implement retry-micro-signing to potentially re-generate micro block
     start_micro_signing(State).
 
@@ -716,8 +716,8 @@ start_micro_sleep(#state{block_candidate = Candidate, leader = true, sleep = Tim
     Info      = [{starting_micro_sleep, State#state.seen_top_block_hash}],
     aec_events:publish(starting_micro_sleep, Info),
     Fun = fun() ->
-        {erlang:sleep(Timout), HeaderBin}
-    end,
+                  {erlang:sleep(Timout), HeaderBin}
+          end,
     dispatch_worker(micro_sleep, Fun, State);
 start_micro_sleep(_State) ->
     no_longer_the_leader. %% TODO: better return
@@ -758,10 +758,10 @@ create_micro_block_candidate(#state{keys_ready = false} = State) ->
 create_micro_block_candidate(State) ->
     epoch_mining:info("Creating block candidate"),
     Fun = fun() ->
-        {TopBlock, TopBlockState} = aec_chain:top_block_with_state(),
-        {aec_mining:create_micro_block_candidate(TopBlock, TopBlockState),
-            State#state.seen_top_block_hash}
-    end,
+                  {TopBlock, TopBlockState} = aec_chain:top_block_with_state(),
+                  {aec_mining:create_micro_block_candidate(TopBlock, TopBlockState),
+                   State#state.seen_top_block_hash}
+          end,
     dispatch_worker(create_micro_block_candidate, Fun, State).
 
 get_adjustment_headers(TopBlock) ->
@@ -788,7 +788,9 @@ handle_key_block_candidate_reply({Result,_OldTopHash}, State) ->
                               [RandomNonce, Nonce,
                                aec_blocks:target(KeyBlockCandidate),
                                aec_blocks:difficulty(KeyBlockCandidate)]),
-            State1 = #state{block_candidate = undefined},
+            Candidate = new_candidate(KeyBlockCandidate, Nonce,
+                                      RandomNonce, State),
+            State1 = #state{block_candidate = Candidate},
             start_mining(State1);
         {error, key_not_found} ->
             start_mining(State#state{keys_ready = false});
